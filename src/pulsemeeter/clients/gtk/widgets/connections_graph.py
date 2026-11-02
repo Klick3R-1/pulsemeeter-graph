@@ -158,7 +158,7 @@ def graph_positions(nodes, links):
     # Kahn ordering; assign remaining cycle members bounded layers.
     indegree = {n: len(incoming[n]) for n in nodes}
     roots = sorted((n for n in nodes if not indegree[n]),
-                   key=lambda n: (nodes[n]["name"].casefold(), n))
+                   key=lambda n: (nodes[n]["name"].casefold(), str(n)))
     pending = deque(roots)
     layers = {n: 0 for n in roots}
     processed = set()
@@ -181,7 +181,7 @@ def graph_positions(nodes, links):
     positions = {}
     for layer, node_ids in columns.items():
         for idx, n in enumerate(sorted(node_ids,
-                     key=lambda item: (nodes[item]["name"].casefold(), item))):
+                     key=lambda item: (nodes[item]["name"].casefold(), str(item)))):
             positions[n] = (30 + layer * 320, 50 + idx * 70)
     return positions, max(900, (max(columns) + 1) * 320 + 40), max(
         450, max(len(column) for column in columns.values()) * 70 + 110)
