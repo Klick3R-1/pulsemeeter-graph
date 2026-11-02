@@ -23,6 +23,7 @@ def read_graph():
                             or props.get("node.nick") or props.get("node.name") or obj["id"]),
                 "class": str(props.get("media.class") or ""),
                 "internal": str(props.get("node.name") or ""),
+                "pid": str(props.get("application.process.id") or ""),
             }
         elif kind == "Port":
             ports[obj["id"]] = {
@@ -42,6 +43,56 @@ def read_graph():
             continue
         links.setdefault((a, b), []).append((source["name"], target["name"]))
     return nodes, links
+
+
+
+def combine_app_streams(nodes, links):
+    """Group matching playback/capture streams into one visual app node.
+
+    This is presentation-only. The underlying PipeWire links remain unchanged.
+    Prefer matching process IDs; only fall back to names if both lack a PID.
+    """
+    groups = defaultdict(list)
+    for node_id, data in nodes.items():
+        media_class = data["class"]
+        if media_class not in ("Stream/Input/Audio", "Stream/Output/Audio"):
+            continue
+        pid = data.get("pid", "")
+        name = data["name"].strip().casefold()
+        if not name:
+            continue
+        # Same app name alone is insufficient if stream processes have PIDs.
+        key = ("pid", pid, name) if pid else ("name", name)
+        groups[key].append(node_id)
+
+    remap = {}
+    merged = dict(nodes)
+    for members in groups.values():
+        classes = {nodes[n]["class"] for n in members}
+        if not {"Stream/Input/Audio", "Stream/Output/Audio"}.issubset(classes):
+            continue
+        # Preserve the IDs behind the combined node for debugging.
+        combined_id = "app:" + ",".join(str(n) for n in sorted(members))
+        name = nodes[members[0]]["name"]
+        merged[combined_id] = {
+            "name": name,
+            "class": "Application (playback + capture)",
+            "internal": name,
+            "pid": nodes[members[0]].get("pid", ""),
+            "members": tuple(sorted(members)),
+        }
+        for member in members:
+            remap[member] = combined_id
+            merged.pop(member)
+
+    grouped_links = {}
+    for (source, target), channels in links.items():
+        a = remap.get(source, source)
+        b = remap.get(target, target)
+        if a == b:
+            continue
+        grouped_links.setdefault((a, b), []).extend(channels)
+    return merged, grouped_links
 
 
 def visible_graph(nodes, links, query="", direction="Both", hide_monitors=True,
@@ -177,6 +228,11 @@ class ConnectionsWindow(Gtk.Window):
         self.hide_volume_control.connect("toggled", self.update_view)
         toolbar.append(self.hide_volume_control)
 
+        self.combine_streams = Gtk.CheckButton(label="Combine app streams")
+        self.combine_streams.set_active(True)
+        self.combine_streams.connect("toggled", self.update_view)
+        toolbar.append(self.combine_streams)
+
         self.status = Gtk.Label(xalign=0)
         self.status.set_margin_start(12)
         self.status.set_margin_bottom(6)
@@ -232,8 +288,11 @@ class ConnectionsWindow(Gtk.Window):
         return False
 
     def update_view(self, *_):
+        nodes, links = (combine_app_streams(self.nodes, self.links)
+                        if self.combine_streams.get_active()
+                        else (self.nodes, self.links))
         self.shown_nodes, self.shown_links = visible_graph(
-            self.nodes, self.links, self.search.get_text(),
+            nodes, links, self.search.get_text(),
             self.direction.get_active_text() or "Both",
             self.hide_peaks.get_active(),
             self.hide_volume_control.get_active())
@@ -294,7 +353,9 @@ class ConnectionsWindow(Gtk.Window):
             cr.set_source_rgba(.5, .5, .5, 1)
             cr.set_font_size(10)
             cr.move_to(x + 5, y + 53)
-            cr.show_text(f"#{node_id}  {kind}"[:40])
+            ids = data.get("members")
+            detail = ("IDs " + ", ".join(map(str, ids))) if ids else f"#{node_id}  {kind}"
+            cr.show_text(detail[:40])
             cr.set_font_size(12)
 
         if not self.shown_nodes:
