@@ -165,7 +165,7 @@ def graph_positions(nodes, links):
     while pending:
         n = pending.popleft()
         processed.add(n)
-        for target in sorted(outgoing[n]):
+        for target in sorted(outgoing[n], key=str):
             layers[target] = max(layers.get(target, 0), layers[n] + 1)
             indegree[target] -= 1
             if indegree[target] == 0:
