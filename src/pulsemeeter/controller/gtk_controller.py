@@ -19,6 +19,7 @@ from pulsemeeter.clients.gtk.widgets.device.device_widget import DeviceWidget
 from pulsemeeter.clients.gtk.widgets.app.app_widget import AppWidget
 from pulsemeeter.clients.gtk.widgets.app.app_dropdown import AppDropDown
 from pulsemeeter.clients.gtk.widgets.welcome_window import WelcomeWindow
+from pulsemeeter.clients.gtk.widgets.connections_graph import ConnectionsWindow
 # from pulsemeeter.settings import STYLE_FILE
 
 # pylint: disable=wrong-import-order,wrong-import-position
@@ -90,6 +91,7 @@ class GtkController(SignalModel):
         self.window = None
         self.content = None
         self.welcome_window = None
+        self.connections_window = None
         self.vumeter_tasks = {'a': {}, 'b': {}, 'vi': {}, 'hi': {}, 'sink_input': {}, 'source_output': {}}
         self.device_handlers = {'a': {}, 'b': {}, 'vi': {}, 'hi': {}}
         self.app_handlers = {'sink_input': {}, 'source_output': {}}
@@ -102,11 +104,23 @@ class GtkController(SignalModel):
         self.window = Gtk.Window(title='Pulsemeeter', application=application)
         self.window.set_default_size(self.config_model.window_width, self.config_model.window_height)
         self.window.set_child(self.content)
+        header = Gtk.HeaderBar()
+        graph_button = Gtk.Button(label='Connections')
+        graph_button.set_tooltip_text('View live PipeWire connections (read-only)')
+        graph_button.connect('clicked', self.open_connections_window)
+        header.pack_end(graph_button)
+        self.window.set_titlebar(header)
         self.connect_window_gtk_events()
 
         self.load_device_list()
         self.load_app_list()
         return self.window
+
+    def open_connections_window(self, *_):
+        '''Open or focus the read-only PipeWire graph.'''
+        if self.connections_window is None or not self.connections_window.get_visible():
+            self.connections_window = ConnectionsWindow(self.window)
+        self.connections_window.present()
 
     def create_content(self, layout):
         arrange_content = layout_manager.get_arrange_content(layout)
