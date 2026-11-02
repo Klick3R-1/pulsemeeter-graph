@@ -44,7 +44,8 @@ def read_graph():
     return nodes, links
 
 
-def visible_graph(nodes, links, query="", direction="Both", hide_monitors=True,\n                  hide_volume_control=False):
+def visible_graph(nodes, links, query="", direction="Both", hide_monitors=True,
+                  hide_volume_control=False):
     """Select a node and trace all real directed links upstream/downstream.
 
     Without a query, show all visible links. Intermediate devices retain their
@@ -55,7 +56,11 @@ def visible_graph(nodes, links, query="", direction="Both", hide_monitors=True,\
         excluded = {node_id for node_id, node in nodes.items()
                     if "peak" in node["name"].lower()
                     or "peak" in node["internal"].lower()}
-    if hide_volume_control:\n        excluded.update(node_id for node_id, node in nodes.items()\n                        if "pulseaudio volume control" in node["name"].casefold()\n                        or "pavucontrol" in node["internal"].casefold())\n    remaining = {key: value for key, value in links.items()
+    if hide_volume_control:
+        excluded.update(node_id for node_id, node in nodes.items()
+                        if "pulseaudio volume control" in node["name"].casefold()
+                        or "pavucontrol" in node["internal"].casefold())
+    remaining = {key: value for key, value in links.items()
                  if key[0] not in excluded and key[1] not in excluded}
     q = query.casefold().strip()
     if not q:
@@ -165,7 +170,12 @@ class ConnectionsWindow(Gtk.Window):
         toolbar.set_margin_bottom(8)
         toolbar.append(self.search)
         toolbar.append(self.direction)
-        toolbar.append(self.hide_peaks)\n\n        self.hide_volume_control = Gtk.CheckButton(label="Hide volume control")\n        self.hide_volume_control.set_active(True)\n        self.hide_volume_control.connect("toggled", self.update_view)\n        toolbar.append(self.hide_volume_control)
+        toolbar.append(self.hide_peaks)
+
+        self.hide_volume_control = Gtk.CheckButton(label="Hide volume control")
+        self.hide_volume_control.set_active(True)
+        self.hide_volume_control.connect("toggled", self.update_view)
+        toolbar.append(self.hide_volume_control)
 
         self.status = Gtk.Label(xalign=0)
         self.status.set_margin_start(12)
@@ -225,7 +235,8 @@ class ConnectionsWindow(Gtk.Window):
         self.shown_nodes, self.shown_links = visible_graph(
             self.nodes, self.links, self.search.get_text(),
             self.direction.get_active_text() or "Both",
-            self.hide_peaks.get_active(),\n            self.hide_volume_control.get_active())
+            self.hide_peaks.get_active(),
+            self.hide_volume_control.get_active())
         self.positions, width, height = graph_positions(
             self.shown_nodes, self.shown_links)
         self.area.set_content_width(width)
